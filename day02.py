@@ -53,8 +53,13 @@ Given the same example list from above:
 
 """
 
+def validate_password_check_2(check):
+    match_1 = check.password[check.min - 1] == check.check_char
+    match_2 = check.password[check.max - 1] == check.check_char
+    return match_1 + match_2 == 1
+
 def find_valid_passwords_2(lines):
-    pass
+    return sum([int(validate_password_check_2(parse_line(line))) for line in lines])
 
 def main():
     with open('day02.txt') as f:
