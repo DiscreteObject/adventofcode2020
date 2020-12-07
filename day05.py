@@ -42,9 +42,9 @@ def parse_seat_id(line):
     return calculate_seat_id(row_num, col_num)
 
 def get_sorted_seat_ids(lines):
-    return sorted([parse_seat_id(line) for line in lines])
+    return sorted(parse_seat_id(line) for line in lines)
 
-def find_missing_seat(sorted_seat_ids, lowest_seat_id, highest_seat_id):
+def find_missing_seat(sorted_seat_ids):
     for i, elem in enumerate(sorted_seat_ids):
         if sorted_seat_ids[i + 1] != elem + 1:
             return elem + 1
@@ -63,7 +63,7 @@ def main():
 
     lowest_seat_id, highest_seat_id = sorted_seat_ids[0], sorted_seat_ids[-1]
     print(lowest_seat_id, highest_seat_id)
-    print(find_missing_seat(sorted_seat_ids, lowest_seat_id, highest_seat_id))
+    print(find_missing_seat(sorted_seat_ids))
 
 if __name__ == '__main__':
     main()
