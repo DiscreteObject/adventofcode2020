@@ -73,7 +73,6 @@ def main():
         lines = [line.strip() for line in f.readlines()]
 
     lines_executed, acc, result = run_program_and_return_acc_before_loop(lines)
-    print(lines_executed)
     print(acc)
 
     acc = find_acc_after_corrected_program(lines, lines_executed)
