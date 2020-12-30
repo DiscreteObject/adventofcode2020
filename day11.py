@@ -75,7 +75,10 @@ class Cell:
     @property
     def is_occupied(self):
         return self.state == CellState.OCCUPIED
-    
+
+    @property
+    def is_seat(self):
+        return self.type == CellType.SEAT
 
     def matches_cell(self, other_cell):
         return self.type == other_cell.type and self.state == other_cell.state
@@ -112,8 +115,8 @@ class Grid:
         left_bound = 0 if col == 0 else col - 1
         right_bound = self.width - 1 if col == self.width - 1 else col + 1
 
-        for row in list(range(upper_bound, lower_bound + 1)):
-            for col in list(range(left_bound, right_bound + 1)):
+        for row in range(upper_bound, lower_bound + 1):
+            for col in range(left_bound, right_bound + 1):
                 if (row, col) != row_col_tuple:
                     adjacent_cell_tuples.append((row, col))
 
@@ -122,27 +125,22 @@ class Grid:
     def adjacent_cells_from_position(self, row_col_tuple):
         adjacent_cell_tuples = self.adjacent_cell_coords_from_position(row_col_tuple)
 
-        cells = []
-        for adjacent_cell_tuple in adjacent_cell_tuples:
-            row, col = adjacent_cell_tuple
-            cells.append(self.cell_rows[row][col])
-        return cells
+        return [self.cell_at(adjacent_cell_tuple) for adjacent_cell_tuple in adjacent_cell_tuples]
 
-    def num_occupied_adjacent_cells_from_position(self, row_col_tuple):
-        adjacent_cells = self.adjacent_cells_from_position(row_col_tuple)
-
+    def num_occupied_cells_from_cells(self, cells):
         occupied_fn = lambda cell: cell.type == CellType.SEAT and cell.state == CellState.OCCUPIED
-        filtered_cells = list(filter(occupied_fn, adjacent_cells))
+        filtered_cells = list(filter(occupied_fn, cells))
         return len(filtered_cells)
 
-    def next_cell_iteration_for_cell_at(self, row_col_tuple):
-        row, col = row_col_tuple
-        current_cell = self.cell_rows[row][col]
+    def next_cell_iteration_for_cell_at_adjacent(self, row_col_tuple):
+        current_cell = self.cell_at(row_col_tuple)
 
         if current_cell.type == CellType.FLOOR:
             return current_cell
 
-        num_occupied_adjacent_cells = self.num_occupied_adjacent_cells_from_position(row_col_tuple)
+        adjacent_cells = self.adjacent_cells_from_position(row_col_tuple)
+
+        num_occupied_adjacent_cells = self.num_occupied_cells_from_cells(adjacent_cells)
 
         if current_cell.state == CellState.EMPTY and num_occupied_adjacent_cells == 0:
             return Cell.init_occupied()
@@ -152,21 +150,133 @@ class Grid:
 
         return current_cell
 
+    def visible_cell_coords_from_position(self, row_col_tuple):
+        visible_cell_tuples = []
+
+        # up left
+        row, col = row_col_tuple
+        while row > 0 and col > 0:
+            row -= 1
+            col -= 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # up
+        row, col = row_col_tuple
+        while row > 0:
+            row -= 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # up right
+        row, col = row_col_tuple
+        while row > 0 and col < self.width - 1:
+            row -= 1
+            col += 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # left
+        row, col = row_col_tuple
+        while col > 0:
+            col -= 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # right
+        row, col = row_col_tuple
+        while col < self.width - 1:
+            col += 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # down left
+        row, col = row_col_tuple
+        while row < self.height - 1 and col > 0:
+            row += 1
+            col -= 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # down
+        row, col = row_col_tuple
+        while row < self.height - 1:
+            row += 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        # down right
+        row, col = row_col_tuple
+        while row < self.height - 1 and col < self.width - 1:
+            row += 1
+            col += 1
+            cell = self.cell_at((row, col))
+            if cell.is_seat:
+                visible_cell_tuples.append((row, col))
+                break
+
+        return visible_cell_tuples
+
+    def visible_cells_from_position(self, row_col_tuple):
+        visible_cell_tuples = self.visible_cell_coords_from_position(row_col_tuple)
+        return [self.cell_at(visible_cell_tuple) for visible_cell_tuple in visible_cell_tuples]
+
+    def num_occupied_visible_seats(self, row_col_tuple):
+        visible_cells = self.visible_cells_from_position(row_col_tuple)
+        num_occupied_visible_cells = self.num_occupied_cells_from_cells(visible_cells)
+        return num_occupied_visible_cells
+
+    def next_cell_iteration_for_cell_at_visible(self, row_col_tuple):
+        current_cell = self.cell_at(row_col_tuple)
+
+        if current_cell.type == CellType.FLOOR:
+            return current_cell
+
+        num_occupied_visible_seats = self.num_occupied_visible_seats(row_col_tuple)
+
+        if current_cell.state == CellState.EMPTY and num_occupied_visible_seats == 0:
+            return Cell.init_occupied()
+
+        if current_cell.state == CellState.OCCUPIED and num_occupied_visible_seats >= 5:
+            return Cell.init_empty()
+
+        return current_cell
+
+    def next_cell_iteration_for_cell_at(self, row_col_tuple, lookup_version):
+        if lookup_version == 'ADJACENT':
+            return self.next_cell_iteration_for_cell_at_adjacent(row_col_tuple)
+        else:
+            return self.next_cell_iteration_for_cell_at_visible(row_col_tuple)
+
     @classmethod
-    def from_previous_grid(cls, previous_grid):
+    def from_previous_grid(cls, previous_grid, lookup_version):
         new_cell_rows = []
-        for i, row in enumerate(previous_grid.cell_rows):
+        for i in range(previous_grid.height):
             new_row = []
-            for j, cell in enumerate(row):
-                new_row.append(previous_grid.next_cell_iteration_for_cell_at((i, j)))
+            for j in range(previous_grid.width):
+                new_row.append(previous_grid.next_cell_iteration_for_cell_at((i, j), lookup_version))
             new_cell_rows.append(new_row)
 
         return cls(cell_rows=new_cell_rows)
 
-    def changed_from_other_state(self, other_grid):
-        for i, row in enumerate(self.cell_rows):
-            for j, cell in enumerate(row):
-                if not cell.matches_cell(other_grid.cell_at((i, j))):
+    def changed_from_previous_state(self, previous_grid):
+        for i in range(self.height):
+            for j in range(self.width):
+                if not self.cell_at((i, j)).matches_cell(previous_grid.cell_at((i, j))):
                     return True
 
         return False
@@ -174,16 +284,14 @@ class Grid:
     def num_occupied_seats(self):
         return sum([sum([1 for cell in row if cell.is_occupied]) for row in self.cell_rows])
 
-def advance_grid(lines):
+def find_occupied_seats_at_equilibrium(lines, lookup_version):
     previous_grid = Grid.from_input_lines(lines)
-
-    next_grid = Grid.from_previous_grid(previous_grid)
-
+    next_grid = Grid.from_previous_grid(previous_grid, lookup_version)
     count = 0
-    while next_grid.changed_from_other_state(previous_grid):
+    while next_grid.changed_from_previous_state(previous_grid):
         count += 1
         previous_grid = next_grid
-        next_grid = Grid.from_previous_grid(previous_grid)
+        next_grid = Grid.from_previous_grid(previous_grid, lookup_version)
 
     print('found equilibrium at %r iterations' % count)
     return next_grid.num_occupied_seats()
@@ -193,8 +301,14 @@ def main():
     with open('day11.txt') as f:
         lines = [line.strip() for line in f.readlines()]
 
-    result = advance_grid(lines)
+    lookup_version = 'ADJACENT'
+    result = find_occupied_seats_at_equilibrium(lines, lookup_version)
     print(result)
+
+    lookup_version = 'VISIBLE'
+    result = find_occupied_seats_at_equilibrium(lines, lookup_version)
+    print(result)
+
 
 if __name__ == '__main__':
     main()
