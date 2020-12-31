@@ -128,11 +128,117 @@ def process_instructions(lines):
     ship.run_instructions(instructions)
     return ship.manhattan_distance_from_origin()
 
+"""
+
+Action N means to move the waypoint north by the given value.
+Action S means to move the waypoint south by the given value.
+Action E means to move the waypoint east by the given value.
+Action W means to move the waypoint west by the given value.
+Action L means to rotate the waypoint around the ship left (counter-clockwise) the given number of degrees.
+Action R means to rotate the waypoint around the ship right (clockwise) the given number of degrees.
+Action F means to move forward to the waypoint a number of times equal to the given value.
+
+The waypoint starts 10 units east and 1 unit north relative to the ship. The waypoint is relative to the ship; that is, if the ship moves, the waypoint moves with it.
+
+Figure out where the navigation instructions actually lead. What is the Manhattan distance between that location and the ship's starting position?
+"""
+
+class MovableObject:
+    def __init__(self, position):
+        self.position = position
+
+    def move_north(self, num_units):
+        self.position = self.position._replace(y=self.position.y + num_units)
+
+    def move_east(self, num_units):
+        self.position = self.position._replace(x=self.position.x + num_units)
+
+    def move_south(self, num_units):
+        self.position = self.position._replace(y=self.position.y - num_units)
+
+    def move_west(self, num_units):
+        self.position = self.position._replace(x=self.position.x - num_units)
+
+    def update_position(self, x, y):
+        self.position = self.position._replace(x=x, y=y)
+
+
+class Waypoint(MovableObject):
+    def __str__(self):
+        return "waypoint={}".format(self.position)
+
+    def rotate_right(self, num_units):
+        rotation_units = int(num_units / 90)
+        if rotation_units == 1:
+            new_pos_x = self.position.y
+            new_pos_y = -self.position.x
+        elif rotation_units == 2:
+            new_pos_x = -self.position.x
+            new_pos_y = -self.position.y
+        elif rotation_units == 3:
+            new_pos_x = -self.position.y
+            new_pos_y = self.position.x
+
+        self.update_position(x=new_pos_x, y=new_pos_y)
+
+    def rotate_left(self, num_units):
+        self.rotate_right(abs(num_units - 360))
+
+
+class Ship2(MovableObject):
+    def __init__(self, position, waypoint_origin):
+        super().__init__(position=position)
+        self.waypoint = Waypoint(position=waypoint_origin)
+
+    def __str__(self):
+        return "<Ship pos=({}) waypoint={}>".format(self.position, self.waypoint)
+
+    def run_instructions(self, instructions):
+        for instr in instructions:
+            self.update(instr)
+
+    def move_to_waypoint(self, num_units):
+        new_pos_x = self.position.x + self.waypoint.position.x * num_units
+        new_pos_y = self.position.y + self.waypoint.position.y * num_units
+        self.update_position(x=new_pos_x, y=new_pos_y)
+
+    def update(self, instruction):
+        if instruction.type == InstructionType.NORTH:
+            self.waypoint.move_north(instruction.num_units)
+        elif instruction.type == InstructionType.EAST:
+            self.waypoint.move_east(instruction.num_units)
+        elif instruction.type == InstructionType.SOUTH:
+            self.waypoint.move_south(instruction.num_units)
+        elif instruction.type == InstructionType.WEST:
+            self.waypoint.move_west(instruction.num_units)
+        elif instruction.type == InstructionType.FORWARD:
+            self.move_to_waypoint(instruction.num_units)
+        elif instruction.type == InstructionType.LEFT:
+            self.waypoint.rotate_left(instruction.num_units)
+        elif instruction.type == InstructionType.RIGHT:
+            self.waypoint.rotate_right(instruction.num_units)
+
+    def manhattan_distance_from_origin(self):
+        return abs(self.position.x) + abs(self.position.y)
+
+
+def process_instructions_2(lines):
+    origin = Position(x=0, y=0)
+    waypoint_origin = Position(x=10, y=1)
+    ship = Ship2(position=origin, waypoint_origin=waypoint_origin)
+
+    instructions = [Instruction.from_input_line(line) for line in lines]
+    ship.run_instructions(instructions)
+    return ship.manhattan_distance_from_origin()
+
 def main():
     with open('day12.txt') as f:
         lines = [line.strip() for line in f.readlines()]
 
     result = process_instructions(lines)
+    print(result)
+
+    result = process_instructions_2(lines)
     print(result)
 
 if __name__ == '__main__':
